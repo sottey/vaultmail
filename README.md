@@ -53,6 +53,19 @@ go run main.go reindex --vault ./vault
 Optional flags:
 - `--verbose` / `-v` (enable verbose output)
 
+## Export Gmail MBOX (Google Takeout)
+
+Step-by-step:
+
+1. Open `takeout.google.com` and sign in.
+2. Click **Deselect all**, then scroll to **Mail** and check it.
+3. Click **All Mail data included** to keep everything or select specific labels.
+4. Click **Next step**.
+5. Choose delivery method (email link is simplest), keep **Export once**, and choose file type/size (defaults are fine).
+6. Click **Create export** and wait for the email notification.
+7. Download the archive(s) from the link in the email.
+8. Extract the `.zip`/`.tgz`. Your MBOX file is in `Takeout/Mail/` (often named `All mail Including Spam and Trash.mbox`). If your mailbox is large, Google may split the export into multiple archive files.
+
 ## Data Layout
 
 ```
@@ -93,6 +106,22 @@ Examples:
 ## Reindex Notes
 
 `reindex` now also backfills `to_name` / `to_email` from stored `.eml` files.
+
+## Docker Release Workflow
+
+Tagged releases automatically build and push multi-arch Docker images to Docker Hub.
+
+1. Ensure the repo has secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` set in GitHub.
+2. Tag a release locally and push it:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+This publishes:
+- `sottey/vaultmail:v1.2.3`
+- `sottey/vaultmail:latest`
 
 ## License
 
