@@ -123,6 +123,27 @@ This publishes:
 - `sottey/vaultmail:v1.2.3`
 - `sottey/vaultmail:latest`
 
+## Docker Deployment
+
+Import (one-time):
+
+```bash
+docker run --rm \
+  -v /path/to/vault:/vault \
+  -v /path/to/mbox:/data \
+  sottey/vaultmail:latest \
+  import --vault /vault --mbox /data/all_mail.mbox
+```
+
+Serve:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -v /path/to/vault:/vault \
+  sottey/vaultmail:latest \
+  serve --vault /vault --addr 0.0.0.0:8080
+```
+
 ## License
 
 MIT. See `LICENSE`.
