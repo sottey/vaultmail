@@ -1,0 +1,70 @@
+{{define "content"}}
+<div class="card">
+  <form method="get" action="/">
+    <div class="filters">
+      <div>
+        <label>Search</label>
+        <input type="text" name="q" placeholder="Search subject, from, body" value="{{.Query}}" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="btn" type="submit">Search</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="list">
+  <div class="row header-row">
+    <div class="muted">Date</div>
+    <div class="muted">From</div>
+    <div class="muted">To</div>
+    <div class="muted">Subject</div>
+    <div class="muted">Status</div>
+    <div class="muted">Action</div>
+  </div>
+  {{range .Messages}}
+  <div class="row">
+    <div class="muted">{{.DateUTC.Format "2006-01-02 15:04"}}</div>
+    <div>
+      <div>{{if .FromName}}{{.FromName}}{{else}}{{.FromEmail}}{{end}}</div>
+      <div class="muted">{{.FromEmail}}</div>
+    </div>
+    <div>
+      <div>{{if .ToName}}{{.ToName}}{{else}}{{.ToEmail}}{{end}}</div>
+      <div class="muted">{{.ToEmail}}</div>
+    </div>
+    <div>
+      <a href="/message/{{.ID}}?q={{urlquery $.Query}}&page={{$.Page}}"><strong>{{if .Subject}}{{.Subject}}{{else}}(no subject){{end}}</strong></a>
+      <div class="muted">{{.Snippet}}</div>
+    </div>
+    <div>
+      {{if .HasAttachments}}<span class="pill">attachments</span>{{end}}
+      {{if .ParseFailed}}<span class="pill warn">parse failed</span>{{end}}
+    </div>
+    <div>
+      <a href="/message/{{.ID}}?q={{urlquery $.Query}}&page={{$.Page}}">View</a>
+    </div>
+  </div>
+  {{end}}
+
+  {{if not .Messages}}
+  <div class="card">No messages found.</div>
+  {{end}}
+</div>
+
+<div class="pager">
+  <div>Page {{.Page}} of {{.TotalPages}} ({{.TotalCount}} messages)</div>
+  <div>
+    {{if gt .Page 1}}
+      <a href="?q={{.Query}}&page={{dec .Page}}">Previous</a>
+    {{end}}
+    {{if lt .Page .TotalPages}}
+      {{if gt .Page 1}} | {{end}}
+      <a href="?q={{.Query}}&page={{inc .Page}}">Next</a>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{template "base" .}}

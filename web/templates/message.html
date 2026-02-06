@@ -1,0 +1,42 @@
+{{define "content"}}
+<div class="card">
+  <div class="toolbar">
+    <a class="btn secondary" href="{{if .BackURL}}{{.BackURL}}{{else}}/{{end}}">Back to list</a>
+    <span class="muted">Message ID: {{.Message.ID}}</span>
+    <a class="btn" href="{{if .BackURL}}{{.BackURL}}{{else}}/{{end}}">Search</a>
+  </div>
+  <div class="message-header">
+    <div class="muted">{{.Message.DateUTC.Format "2006-01-02 15:04"}} UTC</div>
+    <div><strong>From:</strong> {{if .Message.FromName}}{{.Message.FromName}}{{else}}{{.Message.FromEmail}}{{end}} {{if .Message.FromEmail}}&lt;{{.Message.FromEmail}}&gt;{{end}}</div>
+    {{if or .Message.ToName .Message.ToEmail}}
+      <div><strong>To:</strong> {{if .Message.ToName}}{{.Message.ToName}}{{else}}{{.Message.ToEmail}}{{end}} {{if .Message.ToEmail}}&lt;{{.Message.ToEmail}}&gt;{{end}}</div>
+    {{end}}
+    <div><strong>Subject:</strong> {{if .Message.Subject}}{{.Message.Subject}}{{else}}(no subject){{end}}</div>
+    {{if .ParseFailed}}<div class="pill warn">Parsed with fallback</div>{{end}}
+  </div>
+  <div class="body">{{.BodyText}}</div>
+</div>
+
+<div class="attachments">
+  {{range .Attachments}}
+    <div class="attachment">
+      <div>
+        <div><strong>{{if .Filename}}{{.Filename}}{{else}}(unnamed){{end}}</strong></div>
+        <div class="muted">{{.MimeType}} · {{.SizeBytes}} bytes</div>
+      </div>
+      <div>
+        {{if or (hasPrefix .MimeType "image/") (eq .MimeType "application/pdf")}}
+          <a class="btn" href="/attachment/{{.ID}}" target="_blank" rel="noopener">View</a>
+        {{end}}
+        <a class="btn secondary" href="/attachment/{{.ID}}/download">Download</a>
+      </div>
+    </div>
+  {{end}}
+
+  {{if not .Attachments}}
+    <div class="card">No attachments.</div>
+  {{end}}
+</div>
+{{end}}
+
+{{template "base" .}}

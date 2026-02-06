@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  vaultmail:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./vault:/vault
+    command: ["serve", "--vault", "/vault", "--addr", "0.0.0.0:8080"]
