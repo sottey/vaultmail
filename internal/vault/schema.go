@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS messages (
   size_bytes INTEGER NOT NULL,
   has_attachments INTEGER NOT NULL DEFAULT 0,
   parse_failed INTEGER NOT NULL DEFAULT 0,
+  deleted INTEGER NOT NULL DEFAULT 0,
   import_batch_id INTEGER NOT NULL,
   created_utc INTEGER NOT NULL
 );
@@ -67,7 +68,10 @@ func InitSchema(db *sql.DB) error {
 	if err := ensureParseFailedColumn(db); err != nil {
 		return err
 	}
-	return ensureToColumns(db)
+	if err := ensureToColumns(db); err != nil {
+		return err
+	}
+	return ensureDeletedColumn(db)
 }
 
 func ensureParseFailedColumn(db *sql.DB) error {
@@ -144,4 +148,37 @@ func ensureToColumns(db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func ensureDeletedColumn(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(messages);`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	hasColumn := false
+	for rows.Next() {
+		var cid int
+		var name string
+		var ctype string
+		var notnull int
+		var dflt sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == "deleted" {
+			hasColumn = true
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if hasColumn {
+		return nil
+	}
+	_, err = db.Exec(`ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;`)
+	return err
 }

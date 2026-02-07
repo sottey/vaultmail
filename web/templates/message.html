@@ -4,6 +4,17 @@
     <a class="btn secondary" href="{{if .BackURL}}{{.BackURL}}{{else}}/{{end}}">Back to list</a>
     <span class="muted">Message ID: {{.Message.ID}}</span>
     <a class="btn" href="{{if .BackURL}}{{.BackURL}}{{else}}/{{end}}">Search</a>
+    {{if .Message.Deleted}}
+      <form method="post" action="/message/{{.Message.ID}}/unarchive" style="margin:0;">
+        <input type="hidden" name="next" value="{{if .BackURL}}{{.BackURL}}{{else}}/{{end}}" />
+        <button class="btn" type="submit">Unarchive</button>
+      </form>
+    {{else}}
+      <form method="post" action="/message/{{.Message.ID}}/archive" style="margin:0;">
+        <input type="hidden" name="next" value="{{if .BackURL}}{{.BackURL}}{{else}}/{{end}}" />
+        <button class="btn secondary" type="submit">Archive</button>
+      </form>
+    {{end}}
   </div>
   <div class="message-header">
     <div class="muted">{{.Message.DateUTC.Format "2006-01-02 15:04"}} UTC</div>
@@ -12,6 +23,7 @@
       <div><strong>To:</strong> {{if .Message.ToName}}{{.Message.ToName}}{{else}}{{.Message.ToEmail}}{{end}} {{if .Message.ToEmail}}&lt;{{.Message.ToEmail}}&gt;{{end}}</div>
     {{end}}
     <div><strong>Subject:</strong> {{if .Message.Subject}}{{.Message.Subject}}{{else}}(no subject){{end}}</div>
+    {{if .Message.Deleted}}<div class="pill warn">Archived</div>{{end}}
     {{if .ParseFailed}}<div class="pill warn">Parsed with fallback</div>{{end}}
   </div>
   {{if .BodyHTML}}

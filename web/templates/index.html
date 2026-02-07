@@ -1,6 +1,16 @@
 {{define "content"}}
-<div class="list">
+<form method="post" action="/messages/archive">
+  <input type="hidden" name="next" value="/?q={{urlquery .Query}}&page={{.Page}}&per_page={{.PerPage}}" />
+  <div class="toolbar bulk-actions">
+    <button class="btn secondary" type="submit">Archive selected</button>
+    <label class="muted" style="display:flex; align-items:center; gap:6px;">
+      <input type="checkbox" id="select-all" />
+      Select all on page
+    </label>
+  </div>
+  <div class="list">
   <div class="row header-row">
+    <div class="muted"></div>
     <div class="muted">Date</div>
     <div class="muted">From</div>
     <div class="muted">To</div>
@@ -10,6 +20,7 @@
   </div>
   {{range .Messages}}
   <div class="row">
+    <div><input type="checkbox" name="ids" value="{{.ID}}" class="row-select" /></div>
     <div class="muted">{{.DateUTC.Format "2006-01-02 15:04"}}</div>
     <div>
       <div>{{if .FromName}}{{.FromName}}{{else}}{{.FromEmail}}{{end}}</div>
@@ -26,9 +37,10 @@
     <div>
       {{if .HasAttachments}}<span class="pill">attachments</span>{{end}}
       {{if .ParseFailed}}<span class="pill warn">parse failed</span>{{end}}
+      {{if .Deleted}}<span class="pill warn">archived</span>{{end}}
     </div>
     <div>
-      <a href="/message/{{.ID}}?q={{urlquery $.Query}}&page={{$.Page}}">View</a>
+      <a href="/message/{{.ID}}?q={{urlquery $.Query}}&page={{$.Page}}&per_page={{$.PerPage}}">View</a>
     </div>
   </div>
   {{end}}
@@ -37,19 +49,33 @@
   <div class="card">No messages found.</div>
   {{end}}
 </div>
+</form>
 
 <div class="pager">
   <div>Page {{.Page}} of {{.TotalPages}} ({{.TotalCount}} messages)</div>
   <div>
     {{if gt .Page 1}}
-      <a href="?q={{.Query}}&page={{dec .Page}}">Previous</a>
+      <a href="?q={{.Query}}&page={{dec .Page}}&per_page={{.PerPage}}">Previous</a>
     {{end}}
     {{if lt .Page .TotalPages}}
       {{if gt .Page 1}} | {{end}}
-      <a href="?q={{.Query}}&page={{inc .Page}}">Next</a>
+      <a href="?q={{.Query}}&page={{inc .Page}}&per_page={{.PerPage}}">Next</a>
     {{end}}
   </div>
 </div>
+
+<script>
+  (function() {
+    var selectAll = document.getElementById("select-all");
+    if (!selectAll) return;
+    selectAll.addEventListener("change", function() {
+      var boxes = document.querySelectorAll(".row-select");
+      for (var i = 0; i < boxes.length; i++) {
+        boxes[i].checked = selectAll.checked;
+      }
+    });
+  })();
+</script>
 {{end}}
 
 {{template "base" .}}

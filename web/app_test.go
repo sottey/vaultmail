@@ -3,7 +3,7 @@ package web
 import "testing"
 
 func TestParseQuery(t *testing.T) {
-	q := `from:alice subject:report date:>=2025-01-01 att:>10M has:attachment "meeting notes"`
+	q := `from:alice subject:report date:>=2025-01-01 att:>10M has:attachment archived:true "meeting notes"`
 	parsed := parseQuery(q)
 
 	if parsed.FromQuery != "alice" {
@@ -20,6 +20,9 @@ func TestParseQuery(t *testing.T) {
 	}
 	if parsed.MinAttachmentBytes != 10*1024*1024 {
 		t.Fatalf("expected min attachment 10M, got %d", parsed.MinAttachmentBytes)
+	}
+	if !parsed.DeletedOnly {
+		t.Fatalf("expected archived only true")
 	}
 	if parsed.RawText != "meeting notes" {
 		t.Fatalf("expected raw text, got %q", parsed.RawText)

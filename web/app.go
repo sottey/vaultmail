@@ -43,6 +43,7 @@ type MessageRow struct {
 	Snippet        string
 	HasAttachments bool
 	ParseFailed    bool
+	Deleted        bool
 }
 
 type AttachmentRow struct {
@@ -57,6 +58,7 @@ type ListView struct {
 	Messages    []MessageRow
 	Query       string
 	Page        int
+	PerPage     int
 	TotalPages  int
 	TotalCount  int
 	AuthEnabled bool
@@ -75,6 +77,7 @@ type MessageView struct {
 	Themes      []ThemeOption
 	ThemeCSS    template.CSS
 	Query       string
+	PerPage     int
 }
 
 type LoginView struct {
@@ -84,6 +87,7 @@ type LoginView struct {
 	Themes      []ThemeOption
 	ThemeCSS    template.CSS
 	Query       string
+	PerPage     int
 }
 
 func NewApp(v *vault.Vault, password string, themesDir string, rawHTML bool) (*App, error) {
@@ -134,6 +138,9 @@ func (a *App) Router() chi.Router {
 	}
 	r.Get("/", a.handleIndex)
 	r.Get("/message/{id}", a.handleMessage)
+	r.Post("/message/{id}/archive", a.handleMessageArchive)
+	r.Post("/message/{id}/unarchive", a.handleMessageUnarchive)
+	r.Post("/messages/archive", a.handleBulkArchive)
 	r.Get("/attachment/{id}", a.handleAttachmentView)
 	r.Get("/attachment/{id}/download", a.handleAttachment)
 	return r
@@ -143,10 +150,11 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	parsed := parseQuery(q)
 	page := parseIntDefault(r.URL.Query().Get("page"), 1)
+	perPage := parsePerPage(r.URL.Query().Get("per_page"))
 	if page < 1 {
 		page = 1
 	}
-	limit := 50
+	limit := perPage
 	offset := (page - 1) * limit
 
 	filter := messageFilter{
@@ -159,6 +167,7 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		FromDate:           parsed.FromDate,
 		ToDate:             parsed.ToDate,
 		HasAttachments:     parsed.HasAttachments,
+		DeletedOnly:        parsed.DeletedOnly,
 		Limit:              limit,
 		Offset:             offset,
 	}
@@ -181,6 +190,7 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		Messages:    messages,
 		Query:       q,
 		Page:        page,
+		PerPage:     perPage,
 		TotalPages:  totalPages,
 		TotalCount:  total,
 		AuthEnabled: a.authEnabled(),
@@ -246,6 +256,7 @@ func (a *App) handleMessage(w http.ResponseWriter, r *http.Request) {
 		Themes:      a.themes,
 		ThemeCSS:    a.themeCSS,
 		Query:       strings.TrimSpace(r.URL.Query().Get("q")),
+		PerPage:     parsePerPage(r.URL.Query().Get("per_page")),
 	}
 
 	a.render(w, a.MsgTmpl, "message.html", view)
@@ -314,6 +325,69 @@ func (a *App) handleAttachmentView(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, path)
 }
 
+func (a *App) handleMessageArchive(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	messageID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		writeError(w, fmt.Errorf("invalid message id"))
+		return
+	}
+	if err := a.setMessageDeleted(r.Context(), messageID, true); err != nil {
+		writeError(w, err)
+		return
+	}
+	next := strings.TrimSpace(r.FormValue("next"))
+	if next == "" {
+		next = "/"
+	}
+	http.Redirect(w, r, next, http.StatusFound)
+}
+
+func (a *App) handleMessageUnarchive(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	messageID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		writeError(w, fmt.Errorf("invalid message id"))
+		return
+	}
+	if err := a.setMessageDeleted(r.Context(), messageID, false); err != nil {
+		writeError(w, err)
+		return
+	}
+	next := strings.TrimSpace(r.FormValue("next"))
+	if next == "" {
+		next = "/"
+	}
+	http.Redirect(w, r, next, http.StatusFound)
+}
+
+func (a *App) handleBulkArchive(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeError(w, err)
+		return
+	}
+	ids := r.Form["ids"]
+	messageIDs := make([]int64, 0, len(ids))
+	for _, raw := range ids {
+		id, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+		if err != nil || id <= 0 {
+			continue
+		}
+		messageIDs = append(messageIDs, id)
+	}
+	if len(messageIDs) > 0 {
+		if err := a.setMessagesDeleted(r.Context(), messageIDs, true); err != nil {
+			writeError(w, err)
+			return
+		}
+	}
+	next := strings.TrimSpace(r.FormValue("next"))
+	if next == "" {
+		next = "/"
+	}
+	http.Redirect(w, r, next, http.StatusFound)
+}
+
 func (a *App) render(w http.ResponseWriter, tmpl *template.Template, name string, data interface{}) {
 	sw := &statusWriter{ResponseWriter: w}
 	sw.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -357,13 +431,31 @@ func parseIntDefault(value string, fallback int) int {
 	return parsed
 }
 
+func parsePerPage(value string) int {
+	switch strings.TrimSpace(value) {
+	case "25":
+		return 25
+	case "50":
+		return 50
+	case "100":
+		return 100
+	case "250":
+		return 250
+	case "500":
+		return 500
+	default:
+		return 25
+	}
+}
+
 func buildBackURL(r *http.Request) string {
 	if r == nil {
 		return "/"
 	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	page := strings.TrimSpace(r.URL.Query().Get("page"))
-	if q == "" && page == "" {
+	perPage := strings.TrimSpace(r.URL.Query().Get("per_page"))
+	if q == "" && page == "" && perPage == "" {
 		return "/"
 	}
 	values := url.Values{}
@@ -372,6 +464,9 @@ func buildBackURL(r *http.Request) string {
 	}
 	if page != "" {
 		values.Set("page", page)
+	}
+	if perPage != "" {
+		values.Set("per_page", perPage)
 	}
 	if encoded := values.Encode(); encoded != "" {
 		return "/?" + encoded
@@ -405,7 +500,7 @@ func (a *App) authMiddleware(next http.Handler) http.Handler {
 
 func (a *App) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 	next := strings.TrimSpace(r.URL.Query().Get("next"))
-	a.renderLogin(w, LoginView{Next: next, AuthEnabled: a.authEnabled(), Themes: a.themes, ThemeCSS: a.themeCSS})
+	a.renderLogin(w, LoginView{Next: next, AuthEnabled: a.authEnabled(), Themes: a.themes, ThemeCSS: a.themeCSS, PerPage: 25})
 }
 
 func (a *App) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -416,7 +511,7 @@ func (a *App) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	next := strings.TrimSpace(r.FormValue("next"))
 	if hashPassword(password) != a.authHash {
-		a.renderLogin(w, LoginView{Error: "Invalid password", Next: next, AuthEnabled: a.authEnabled(), Themes: a.themes, ThemeCSS: a.themeCSS})
+		a.renderLogin(w, LoginView{Error: "Invalid password", Next: next, AuthEnabled: a.authEnabled(), Themes: a.themes, ThemeCSS: a.themeCSS, PerPage: 25})
 		return
 	}
 
@@ -504,6 +599,7 @@ type parsedQuery struct {
 	FromQuery          string
 	ToQuery            string
 	BodyFTSQuery       string
+	DeletedOnly        bool
 }
 
 func parseQuery(q string) parsedQuery {
@@ -523,6 +619,18 @@ func parseQuery(q string) parsedQuery {
 		switch {
 		case lower == "has:attachment" || lower == "has:attachments":
 			out.HasAttachments = true
+			continue
+		case lower == "archived:true" || lower == "archived:1":
+			out.DeletedOnly = true
+			continue
+		case lower == "archived:false" || lower == "archived:0":
+			out.DeletedOnly = false
+			continue
+		case lower == "deleted:true" || lower == "deleted:1":
+			out.DeletedOnly = true
+			continue
+		case lower == "deleted:false" || lower == "deleted:0":
+			out.DeletedOnly = false
 			continue
 		case strings.HasPrefix(lower, "date:>="):
 			out.FromDate = strings.TrimPrefix(lower, "date:>=")
@@ -729,6 +837,7 @@ type messageFilter struct {
 	SubjectQuery       string
 	FromQuery          string
 	ToQuery            string
+	DeletedOnly        bool
 	Limit              int
 	Offset             int
 }
@@ -744,6 +853,7 @@ type messageRecord struct {
 	Snippet        sql.NullString
 	HasAttachments int
 	ParseFailed    int
+	Deleted        int
 	EmlPath        string
 }
 
@@ -759,6 +869,7 @@ func (m messageRecord) ToRow() MessageRow {
 		Snippet:        m.Snippet.String,
 		HasAttachments: m.HasAttachments == 1,
 		ParseFailed:    m.ParseFailed == 1,
+		Deleted:        m.Deleted == 1,
 	}
 }
 
@@ -769,6 +880,11 @@ func (a *App) queryMessages(ctx context.Context, filter messageFilter) ([]Messag
 	if filter.Query != "" {
 		where = append(where, "messages_fts MATCH ?")
 		args = append(args, filter.Query)
+	}
+	if filter.DeletedOnly {
+		where = append(where, "m.deleted = 1")
+	} else {
+		where = append(where, "m.deleted = 0")
 	}
 	if filter.HasAttachments {
 		where = append(where, "m.has_attachments = 1")
@@ -818,7 +934,7 @@ func (a *App) queryMessages(ctx context.Context, filter messageFilter) ([]Messag
 		}
 
 		querySQL := `
-			SELECT m.id, m.date_utc, m.from_name, m.from_email, m.to_name, m.to_email, m.subject, m.snippet, m.has_attachments, m.parse_failed, m.eml_path
+			SELECT m.id, m.date_utc, m.from_name, m.from_email, m.to_name, m.to_email, m.subject, m.snippet, m.has_attachments, m.parse_failed, m.deleted, m.eml_path
 			` + base + whereSQL + `
 			ORDER BY m.date_utc DESC
 			LIMIT ? OFFSET ?
@@ -836,7 +952,7 @@ func (a *App) queryMessages(ctx context.Context, filter messageFilter) ([]Messag
 		}
 
 		querySQL := `
-			SELECT m.id, m.date_utc, m.from_name, m.from_email, m.to_name, m.to_email, m.subject, m.snippet, m.has_attachments, m.parse_failed, m.eml_path
+			SELECT m.id, m.date_utc, m.from_name, m.from_email, m.to_name, m.to_email, m.subject, m.snippet, m.has_attachments, m.parse_failed, m.deleted, m.eml_path
 			FROM messages m
 			` + whereSQL + `
 			ORDER BY m.date_utc DESC
@@ -864,6 +980,7 @@ func (a *App) queryMessages(ctx context.Context, filter messageFilter) ([]Messag
 			&rec.Snippet,
 			&rec.HasAttachments,
 			&rec.ParseFailed,
+			&rec.Deleted,
 			&rec.EmlPath,
 		); err != nil {
 			return nil, 0, err
@@ -887,6 +1004,11 @@ func (a *App) queryMessagesFallback(ctx context.Context, filter messageFilter, c
 	pattern := "%" + filter.RawQuery + "%"
 	where = append(where, "(m.subject LIKE ? OR m.from_email LIKE ? OR m.from_name LIKE ? OR m.to_email LIKE ? OR m.to_name LIKE ? OR m.snippet LIKE ?)")
 	args = append(args, pattern, pattern, pattern, pattern, pattern, pattern)
+	if filter.DeletedOnly {
+		where = append(where, "m.deleted = 1")
+	} else {
+		where = append(where, "m.deleted = 0")
+	}
 	if filter.HasAttachments {
 		where = append(where, "m.has_attachments = 1")
 	}
@@ -927,7 +1049,7 @@ func (a *App) queryMessagesFallback(ctx context.Context, filter messageFilter, c
 	}
 
 	querySQL := `
-		SELECT m.id, m.date_utc, m.from_name, m.from_email, m.to_name, m.to_email, m.subject, m.snippet, m.has_attachments, m.parse_failed, m.eml_path
+		SELECT m.id, m.date_utc, m.from_name, m.from_email, m.to_name, m.to_email, m.subject, m.snippet, m.has_attachments, m.parse_failed, m.deleted, m.eml_path
 		FROM messages m
 		` + whereSQL + `
 		ORDER BY m.date_utc DESC
@@ -954,6 +1076,7 @@ func (a *App) queryMessagesFallback(ctx context.Context, filter messageFilter, c
 			&rec.Snippet,
 			&rec.HasAttachments,
 			&rec.ParseFailed,
+			&rec.Deleted,
 			&rec.EmlPath,
 		); err != nil {
 			return nil, 0, err
@@ -969,7 +1092,7 @@ func (a *App) queryMessagesFallback(ctx context.Context, filter messageFilter, c
 
 func (a *App) getMessage(ctx context.Context, id int64) (messageRecord, error) {
 	row := a.Vault.DB.QueryRowContext(ctx, `
-		SELECT id, date_utc, from_name, from_email, to_name, to_email, subject, snippet, has_attachments, parse_failed, eml_path
+		SELECT id, date_utc, from_name, from_email, to_name, to_email, subject, snippet, has_attachments, parse_failed, deleted, eml_path
 		FROM messages
 		WHERE id = ?
 	`, id)
@@ -986,11 +1109,41 @@ func (a *App) getMessage(ctx context.Context, id int64) (messageRecord, error) {
 		&rec.Snippet,
 		&rec.HasAttachments,
 		&rec.ParseFailed,
+		&rec.Deleted,
 		&rec.EmlPath,
 	); err != nil {
 		return messageRecord{}, err
 	}
 	return rec, nil
+}
+
+func (a *App) setMessageDeleted(ctx context.Context, id int64, deleted bool) error {
+	value := 0
+	if deleted {
+		value = 1
+	}
+	_, err := a.Vault.DB.ExecContext(ctx, `UPDATE messages SET deleted = ? WHERE id = ?`, value, id)
+	return err
+}
+
+func (a *App) setMessagesDeleted(ctx context.Context, ids []int64, deleted bool) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	value := 0
+	if deleted {
+		value = 1
+	}
+	placeholders := make([]string, 0, len(ids))
+	args := make([]interface{}, 0, len(ids)+1)
+	args = append(args, value)
+	for _, id := range ids {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	query := fmt.Sprintf("UPDATE messages SET deleted = ? WHERE id IN (%s)", strings.Join(placeholders, ","))
+	_, err := a.Vault.DB.ExecContext(ctx, query, args...)
+	return err
 }
 
 func (a *App) getAttachments(ctx context.Context, messageID int64) ([]AttachmentRow, error) {

@@ -114,10 +114,14 @@
     }
     .header-search-wrap {
       justify-self: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
     .header-search {
       margin: 0;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 8px;
       justify-content: center;
@@ -129,6 +133,11 @@
       margin-top: 6px;
       font-size: 12px;
       color: var(--muted);
+      display: grid;
+      gap: 6px;
+      justify-content: center;
+    }
+    .search-help-row {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
@@ -206,7 +215,7 @@
       border: 1px solid var(--border);
       background: var(--row-bg);
       display: grid;
-      grid-template-columns: 140px 1.1fr 1.1fr 2fr 1fr auto;
+      grid-template-columns: 34px 140px 1.1fr 1.1fr 2fr 1fr auto;
       gap: 12px;
       align-items: center;
       width: 100%;
@@ -272,6 +281,10 @@
       margin-bottom: 14px;
       align-items: center;
     }
+    .bulk-actions {
+      justify-content: flex-end;
+      width: 100%;
+    }
     .toolbar a {
       text-decoration: none;
     }
@@ -321,16 +334,31 @@
       <form method="get" action="/" class="header-search">
         <input type="text" name="q" placeholder="Search subject, from, body" value="{{.Query}}" />
         <button class="btn" type="submit">Search</button>
+        <label class="muted" style="display:flex; align-items:center; gap:6px;">
+          <span>Per page</span>
+        <select name="per_page" aria-label="Messages per page" style="height:36px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--ink); padding:0 8px;">
+          <option value="25" {{if eq .PerPage 25}}selected{{end}}>25</option>
+          <option value="50" {{if eq .PerPage 50}}selected{{end}}>50</option>
+          <option value="100" {{if eq .PerPage 100}}selected{{end}}>100</option>
+          <option value="250" {{if eq .PerPage 250}}selected{{end}}>250</option>
+          <option value="500" {{if eq .PerPage 500}}selected{{end}}>500</option>
+        </select>
+        </label>
       </form>
       <div class="search-help">
-        <span>from:alice</span>
-        <span>to:"Jane Doe"</span>
-        <span>subject:"invoice"</span>
-        <span>body:"red carpet"</span>
-        <span>date:>=2025-01-01</span>
-        <span>date:<=2025-12-31</span>
-        <span>has:attachment</span>
-        <span>att:>1M</span>
+        <div class="search-help-row">
+          <span>from:alice</span>
+          <span>to:"Jane Doe"</span>
+          <span>subject:"invoice"</span>
+          <span>body:"red carpet"</span>
+          <span>date:>=2025-01-01</span>
+        </div>
+        <div class="search-help-row">
+          <span>date:<=2025-12-31</span>
+          <span>has:attachment</span>
+          <span>att:>1M</span>
+          <span>archived:true</span>
+        </div>
       </div>
     </div>
     <div class="topbar">

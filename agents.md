@@ -34,6 +34,8 @@ Target archive size: **~10 GB**
   - date + attachment filters
   - message detail view
   - attachment downloads
+  - per-page selector (25/50/100/250/500)
+  - multi-select + bulk archive
 
 ### Explicitly Excluded
 - Threaded conversations
@@ -89,6 +91,7 @@ CREATE TABLE messages (
   eml_path TEXT NOT NULL,
   size_bytes INTEGER NOT NULL,
   has_attachments INTEGER NOT NULL DEFAULT 0,
+  deleted INTEGER NOT NULL DEFAULT 0,
   import_batch_id INTEGER NOT NULL,
   created_utc INTEGER NOT NULL
 );
@@ -246,6 +249,8 @@ During import:
 
 - List: date, from, subject, snippet, attachment indicator
 - Message view: headers, body text, attachment list
+- Archive toggle in message view; archived messages hidden unless `archived:true` is used
+- Results list supports multi-select + bulk archive and a per-page selector
 - No SPA
 - Minimal JS
 - Header search bar with filter hints
@@ -299,17 +304,21 @@ Nothing beyond this scope.
 - MIME parsing with attachment handling, plus EML fallback when parsing fails
 - Web UI: browse, search, filter hints, message view, attachment download + inline view for images/PDFs
 - Import error logging to JSONL with per-message context
- - Query syntax (in `q`): `date:>=`, `date:<=`, `has:attachment`, `att:>10M`, `subject:`, `from:`, `to:`, `body:`
+ - Query syntax (in `q`): `date:>=`, `date:<=`, `has:attachment`, `att:>10M`, `subject:`, `from:`, `to:`, `body:`, `archived:true`
  - `to_name` / `to_email` persisted on import (backfilled on `reindex`)
 - Optional password auth with cookie + logout
 - Built-in themes + external themes via `--themes`
 - HTML emails rendered safely by default; `--unsafe-html` renders raw HTML
+- Archive for messages; hidden from search unless `archived:true`
+- Per-page selector (25/50/100/250/500)
+- Multi-select + bulk archive from results
 
 ### Search Behavior
 - FTS uses `trigram` tokenizer for substring matching (e.g., `kellibyers` matches `kellibyersclark`)
 - `reindex` rebuilds the FTS index after tokenizer/schema changes
 - If FTS query fails, UI falls back to `LIKE` on subject/from/snippet
  - Fielded search in `q` supports `subject:`, `from:`, `to:`, and `body:` (quoted phrases supported)
+ - `archived:true` shows archived messages
 
 ### Parse Failures
 - Messages that required fallback parsing are stored with `parse_failed = 1`

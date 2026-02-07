@@ -8,9 +8,12 @@ VaultMail is a local Gmail MBOX archive browser built in Go. It imports MBOX fil
 - Full-text search with substring matching (FTS5 trigram)
 - Local storage (SQLite + filesystem blobs)
 - Web UI: browse, search, filters, message view, attachments
+- Per-page selector (25/50/100/250/500)
+- Multi-select + bulk archive from results
 - Inline preview for images and PDFs
 - Import error logging (JSONL) with per-message context
 - Query syntax in `q` (date/attachment/fielded filters)
+- Archive messages (hidden unless `archived:true`)
 
 ## Requirements
 
@@ -107,6 +110,7 @@ Supported filters:
 - `from:someone@example.com`
 - `to:"Jane Doe"` (requires reindex to backfill)
 - `body:"exact phrase"`
+- `archived:true`
 
 Examples:
 
