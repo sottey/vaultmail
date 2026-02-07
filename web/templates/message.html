@@ -14,7 +14,11 @@
     <div><strong>Subject:</strong> {{if .Message.Subject}}{{.Message.Subject}}{{else}}(no subject){{end}}</div>
     {{if .ParseFailed}}<div class="pill warn">Parsed with fallback</div>{{end}}
   </div>
-  <div class="body">{{.BodyText}}</div>
+  {{if .BodyHTML}}
+    <div class="body html-body">{{.BodyHTML}}</div>
+  {{else}}
+    <div class="body">{{.BodyText}}</div>
+  {{end}}
 </div>
 
 <div class="attachments">

@@ -12,6 +12,7 @@ var templateFS embed.FS
 type Server struct {
 	Index   *template.Template
 	Message *template.Template
+	Login   *template.Template
 }
 
 func NewServer() (*Server, error) {
@@ -33,6 +34,10 @@ func NewServer() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	login, err := template.New("base").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/login.html")
+	if err != nil {
+		return nil, err
+	}
 
-	return &Server{Index: index, Message: message}, nil
+	return &Server{Index: index, Message: message, Login: login}, nil
 }

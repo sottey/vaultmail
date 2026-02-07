@@ -23,8 +23,20 @@ var serveCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		password, err := cmd.Flags().GetString("password")
+		if err != nil {
+			return err
+		}
+		themesDir, err := cmd.Flags().GetString("themes")
+		if err != nil {
+			return err
+		}
+		rawHTML, err := cmd.Flags().GetBool("unsafe-html")
+		if err != nil {
+			return err
+		}
 
-		return runServer(vaultDir, addr)
+		return runServer(vaultDir, addr, password, themesDir, rawHTML)
 	},
 }
 
@@ -32,9 +44,12 @@ func init() {
 	serveCmd.Flags().String("vault", "", "path to vault directory")
 	_ = serveCmd.MarkFlagRequired("vault")
 	serveCmd.Flags().String("addr", "127.0.0.1:8080", "server listen address")
+	serveCmd.Flags().String("password", "", "optional password for web access")
+	serveCmd.Flags().String("themes", "", "optional path to a themes directory (json/yaml)")
+	serveCmd.Flags().Bool("unsafe-html", false, "render raw HTML emails without sanitizing (unsafe)")
 }
 
-func runServer(vaultDir, addr string) error {
+func runServer(vaultDir, addr, password, themesDir string, rawHTML bool) error {
 	if vaultDir == "" {
 		return errors.New("--vault requires a path to a vault directory")
 	}
@@ -45,7 +60,7 @@ func runServer(vaultDir, addr string) error {
 	}
 	defer v.Close()
 
-	app, err := web.NewApp(v)
+	app, err := web.NewApp(v, password, themesDir, rawHTML)
 	if err != nil {
 		return err
 	}

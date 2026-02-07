@@ -8,6 +8,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	golang.org/x/net v0.34.0
 	golang.org/x/text v0.28.0
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.29.0
 )
 

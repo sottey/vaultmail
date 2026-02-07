@@ -41,6 +41,9 @@ Open `http://127.0.0.1:8080` in your browser.
 
 Optional flags:
 - `--verbose` / `-v` (enable verbose output)
+- `--password` (require a password for web access)
+- `--themes` (load additional themes from a directory of `.json`/`.yaml` files)
+- `--unsafe-html` (render raw HTML emails without sanitizing)
 
 ### 3) Rebuild Search Index
 
@@ -142,6 +145,32 @@ docker run --rm -p 8080:8080 \
   -v /path/to/vault:/vault \
   sottey/vaultmail:latest \
   serve --vault /vault --addr 0.0.0.0:8080
+```
+
+## Themes
+
+VaultMail ships with built-in themes (Paper, Sage, Slate, Noir) and lets you add your own.
+
+1. Create a themes directory with JSON or YAML files.
+2. Start the server with `--themes /path/to/themes`.
+3. Choose the theme from the header dropdown (saved in a cookie).
+
+Example `ocean.yaml`:
+
+```yaml
+name: ocean
+vars:
+  bg: "#e6f2ff"
+  ink: "#0a1c2e"
+  muted: "#4b657a"
+  accent: "#0077cc"
+  accent-2: "#00a3a3"
+  card: "#ffffff"
+  border: "#c7d7e6"
+  header-bg: "linear-gradient(90deg, #f2f8ff, #dce9f7)"
+  sidebar-bg: "#edf4fb"
+  row-bg: "#ffffff"
+  row-alt: "#f6f9fd"
 ```
 
 ## License

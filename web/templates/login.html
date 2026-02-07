@@ -1,0 +1,19 @@
+{{define "content"}}
+<div class="card">
+  <h2>VaultMail</h2>
+  <p class="muted">Enter the password to continue.</p>
+  {{if .Error}}
+    <div class="pill warn">{{.Error}}</div>
+  {{end}}
+  <form method="post" action="/login">
+    <input type="hidden" name="next" value="{{.Next}}" />
+    <label>Password</label>
+    <input type="password" name="password" autofocus />
+    <div style="margin-top: 12px;">
+      <button class="btn" type="submit">Sign in</button>
+    </div>
+  </form>
+</div>
+{{end}}
+
+{{template "base" .}}

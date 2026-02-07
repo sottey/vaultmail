@@ -2,7 +2,9 @@ package web
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -22,6 +24,12 @@ type App struct {
 	Vault     *vault.Vault
 	IndexTmpl *template.Template
 	MsgTmpl   *template.Template
+	LoginTmpl *template.Template
+	Media     http.Handler
+	authHash  string
+	themes    []ThemeOption
+	themeCSS  template.CSS
+	rawHTML   bool
 }
 
 type MessageRow struct {
@@ -46,22 +54,39 @@ type AttachmentRow struct {
 }
 
 type ListView struct {
-	Messages   []MessageRow
-	Query      string
-	Page       int
-	TotalPages int
-	TotalCount int
+	Messages    []MessageRow
+	Query       string
+	Page        int
+	TotalPages  int
+	TotalCount  int
+	AuthEnabled bool
+	Themes      []ThemeOption
+	ThemeCSS    template.CSS
 }
 
 type MessageView struct {
 	Message     MessageRow
 	BodyText    string
+	BodyHTML    template.HTML
 	Attachments []AttachmentRow
 	ParseFailed bool
 	BackURL     string
+	AuthEnabled bool
+	Themes      []ThemeOption
+	ThemeCSS    template.CSS
+	Query       string
 }
 
-func NewApp(v *vault.Vault) (*App, error) {
+type LoginView struct {
+	Error       string
+	Next        string
+	AuthEnabled bool
+	Themes      []ThemeOption
+	ThemeCSS    template.CSS
+	Query       string
+}
+
+func NewApp(v *vault.Vault, password string, themesDir string, rawHTML bool) (*App, error) {
 	if v == nil {
 		return nil, fmt.Errorf("vault is required")
 	}
@@ -69,11 +94,44 @@ func NewApp(v *vault.Vault) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &App{Vault: v, IndexTmpl: server.Index, MsgTmpl: server.Message}, nil
+	media, err := mediaFileServer()
+	if err != nil {
+		return nil, err
+	}
+	themeOptions := builtinThemes()
+	themeCSS, extraThemes, err := loadThemes(themesDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(extraThemes) > 0 {
+		themeOptions = append(themeOptions, extraThemes...)
+	}
+
+	app := &App{
+		Vault:     v,
+		IndexTmpl: server.Index,
+		MsgTmpl:   server.Message,
+		LoginTmpl: server.Login,
+		Media:     media,
+		themes:    themeOptions,
+		themeCSS:  themeCSS,
+		rawHTML:   rawHTML,
+	}
+	app.authHash = hashPassword(password)
+	return app, nil
 }
 
 func (a *App) Router() chi.Router {
 	r := chi.NewRouter()
+	if a.authEnabled() {
+		r.Use(a.authMiddleware)
+		r.Get("/login", a.handleLoginForm)
+		r.Post("/login", a.handleLoginSubmit)
+		r.Post("/logout", a.handleLogout)
+	}
+	if a.Media != nil {
+		r.Handle("/media/*", http.StripPrefix("/media/", a.Media))
+	}
 	r.Get("/", a.handleIndex)
 	r.Get("/message/{id}", a.handleMessage)
 	r.Get("/attachment/{id}", a.handleAttachmentView)
@@ -120,11 +178,14 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	view := ListView{
-		Messages:   messages,
-		Query:      q,
-		Page:       page,
-		TotalPages: totalPages,
-		TotalCount: total,
+		Messages:    messages,
+		Query:       q,
+		Page:        page,
+		TotalPages:  totalPages,
+		TotalCount:  total,
+		AuthEnabled: a.authEnabled(),
+		Themes:      a.themes,
+		ThemeCSS:    a.themeCSS,
 	}
 
 	a.render(w, a.IndexTmpl, "index.html", view)
@@ -156,6 +217,17 @@ func (a *App) handleMessage(w http.ResponseWriter, r *http.Request) {
 	if parseErr != nil {
 		parseFailed = true
 	}
+	bodyHTML := template.HTML("")
+	if strings.TrimSpace(parsed.HTMLText) != "" {
+		if a.rawHTML {
+			bodyHTML = template.HTML(parsed.HTMLText)
+		} else {
+			bodyHTML = sanitizeHTML(parsed.HTMLText)
+			if strings.TrimSpace(string(bodyHTML)) == "" {
+				bodyHTML = template.HTML("")
+			}
+		}
+	}
 
 	attachments, err := a.getAttachments(r.Context(), messageID)
 	if err != nil {
@@ -166,9 +238,14 @@ func (a *App) handleMessage(w http.ResponseWriter, r *http.Request) {
 	view := MessageView{
 		Message:     msg.ToRow(),
 		BodyText:    parsed.BodyText,
+		BodyHTML:    bodyHTML,
 		Attachments: attachments,
 		ParseFailed: parseFailed,
 		BackURL:     buildBackURL(r),
+		AuthEnabled: a.authEnabled(),
+		Themes:      a.themes,
+		ThemeCSS:    a.themeCSS,
+		Query:       strings.TrimSpace(r.URL.Query().Get("q")),
 	}
 
 	a.render(w, a.MsgTmpl, "message.html", view)
@@ -247,6 +324,14 @@ func (a *App) render(w http.ResponseWriter, tmpl *template.Template, name string
 	}
 }
 
+func (a *App) renderLogin(w http.ResponseWriter, view LoginView) {
+	if a.LoginTmpl == nil {
+		writeError(w, fmt.Errorf("login template unavailable"))
+		return
+	}
+	a.render(w, a.LoginTmpl, "login.html", view)
+}
+
 func writeError(w http.ResponseWriter, err error) {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
@@ -292,6 +377,94 @@ func buildBackURL(r *http.Request) string {
 		return "/?" + encoded
 	}
 	return "/"
+}
+
+const authCookieName = "vaultmail_auth"
+
+func (a *App) authEnabled() bool {
+	return a != nil && a.authHash != ""
+}
+
+func (a *App) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !a.authEnabled() {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path == "/login" || strings.HasPrefix(r.URL.Path, "/media/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if a.isAuthed(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		http.Redirect(w, r, "/login?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusFound)
+	})
+}
+
+func (a *App) handleLoginForm(w http.ResponseWriter, r *http.Request) {
+	next := strings.TrimSpace(r.URL.Query().Get("next"))
+	a.renderLogin(w, LoginView{Next: next, AuthEnabled: a.authEnabled(), Themes: a.themes, ThemeCSS: a.themeCSS})
+}
+
+func (a *App) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeError(w, err)
+		return
+	}
+	password := r.FormValue("password")
+	next := strings.TrimSpace(r.FormValue("next"))
+	if hashPassword(password) != a.authHash {
+		a.renderLogin(w, LoginView{Error: "Invalid password", Next: next, AuthEnabled: a.authEnabled(), Themes: a.themes, ThemeCSS: a.themeCSS})
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     authCookieName,
+		Value:    a.authHash,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   60 * 60 * 24 * 30,
+	})
+
+	if next == "" {
+		next = "/"
+	}
+	http.Redirect(w, r, next, http.StatusFound)
+}
+
+func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     authCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+func (a *App) isAuthed(r *http.Request) bool {
+	if r == nil || !a.authEnabled() {
+		return true
+	}
+	cookie, err := r.Cookie(authCookieName)
+	if err != nil {
+		return false
+	}
+	return cookie.Value == a.authHash
+}
+
+func hashPassword(password string) string {
+	password = strings.TrimSpace(password)
+	if password == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(sum[:])
 }
 
 func sanitizeFilename(name string) string {

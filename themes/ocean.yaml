@@ -1,0 +1,13 @@
+name: ocean
+vars:
+  bg: "#e6f2ff"
+  ink: "#0a1c2e"
+  muted: "#4b657a"
+  accent: "#0077cc"
+  accent-2: "#00a3a3"
+  card: "#ffffff"
+  border: "#c7d7e6"
+  header-bg: "linear-gradient(90deg, #f2f8ff, #dce9f7)"
+  sidebar-bg: "#edf4fb"
+  row-bg: "#ffffff"
+  row-alt: "#f6f9fd"

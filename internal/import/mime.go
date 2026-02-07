@@ -43,6 +43,7 @@ type ParsedEmail struct {
 	ToEmail        string
 	Subject        string
 	BodyText       string
+	HTMLText       string
 	Snippet        string
 	HasAttachments bool
 	Attachments    []StoredAttachment
@@ -82,6 +83,7 @@ func ParseEmail(raw []byte, sink AttachmentSink) (ParsedEmail, error) {
 		ToEmail:        toEmail,
 		Subject:        subject,
 		BodyText:       bodyText,
+		HTMLText:       htmlText,
 		Snippet:        snippet,
 		HasAttachments: len(attachments) > 0,
 		Attachments:    attachments,
@@ -106,7 +108,9 @@ func parseEmailFallback(raw []byte) ParsedEmail {
 	dateUTC := parseDate(headers["date"])
 
 	bodyText := string(body)
+	htmlText := ""
 	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(headers["content-type"])), "text/html") {
+		htmlText = bodyText
 		bodyText = htmlToText(bodyText)
 	}
 	bodyText = normalizeWhitespace(bodyText)
@@ -121,6 +125,7 @@ func parseEmailFallback(raw []byte) ParsedEmail {
 		ToEmail:        toEmail,
 		Subject:        subject,
 		BodyText:       bodyText,
+		HTMLText:       htmlText,
 		Snippet:        snippet,
 		HasAttachments: false,
 		Attachments:    nil,

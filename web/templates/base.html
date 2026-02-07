@@ -14,28 +14,81 @@
       --accent-2: #ff9b00;
       --card: #ffffff;
       --border: #e2d8cc;
+      --header-bg: linear-gradient(90deg, #fff7e7, #f6efe4);
+      --sidebar-bg: #fffaf1;
+      --row-bg: #ffffff;
+      --row-alt: #faf7f2;
     }
+    [data-theme="noir"] {
+      --bg: #121214;
+      --ink: #f2f2f2;
+      --muted: #b0b0b0;
+      --accent: #ffb100;
+      --accent-2: #ff6a3d;
+      --card: #1b1d20;
+      --border: #2b2e33;
+      --header-bg: linear-gradient(90deg, #1b1d20, #17181b);
+      --sidebar-bg: #1a1b1f;
+      --row-bg: #1b1d20;
+      --row-alt: #20242a;
+    }
+    [data-theme="sage"] {
+      --bg: #eef2ec;
+      --ink: #1d2420;
+      --muted: #546055;
+      --accent: #2f6f55;
+      --accent-2: #c0772f;
+      --card: #ffffff;
+      --border: #cdd8d0;
+      --header-bg: linear-gradient(90deg, #f4f8f3, #e7efe7);
+      --sidebar-bg: #f0f5f0;
+      --row-bg: #ffffff;
+      --row-alt: #f5f9f5;
+    }
+    [data-theme="slate"] {
+      --bg: #e9edf2;
+      --ink: #1f242b;
+      --muted: #5b6673;
+      --accent: #2f4b7c;
+      --accent-2: #a44f3a;
+      --card: #ffffff;
+      --border: #cfd7e3;
+      --header-bg: linear-gradient(90deg, #f3f6fa, #e4e9f1);
+      --sidebar-bg: #eef3f8;
+      --row-bg: #ffffff;
+      --row-alt: #f3f6fb;
+    }
+    {{.ThemeCSS}}
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Spectral", "Georgia", serif;
       color: var(--ink);
-      background: radial-gradient(circle at top left, #fffaf3, var(--bg));
+      background: var(--bg);
     }
     header {
-      padding: 24px 24px 16px;
+      padding: 12px 24px;
       border-bottom: 1px solid var(--border);
-      background: linear-gradient(90deg, #fff7e7, #f6efe4);
+      background: var(--header-bg);
     }
-    header h1 {
-      margin: 0 0 6px;
-      font-size: 28px;
-      letter-spacing: 0.5px;
+    header .logo {
+      height: 72px;
+      width: auto;
+      display: block;
     }
-    header p {
+    .logo-link {
       margin: 0;
-      color: var(--muted);
-      font-size: 14px;
+    }
+    .logo-link button {
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+    .logo-link button:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 8px;
     }
     .container {
       max-width: none;
@@ -44,37 +97,48 @@
     }
     .grid {
       display: grid;
-      grid-template-columns: 1fr 200px;
+      grid-template-columns: 1fr;
       gap: 20px;
-    }
-    .sidebar {
-      background: #fffaf1;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
-      font-size: 13px;
-      color: var(--muted);
-      display: grid;
-      gap: 10px;
-      height: fit-content;
-    }
-    .sidebar h3 {
-      margin: 0;
-      font-size: 14px;
-      color: var(--ink);
-    }
-    .sidebar .stat {
-      display: flex;
-      justify-content: space-between;
-      font-weight: 600;
-      color: var(--ink);
     }
     .topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      margin-top: 12px;
+    }
+    .header-bar {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 16px;
+      align-items: center;
+    }
+    .header-search-wrap {
+      justify-self: center;
+    }
+    .header-search {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+    }
+    .header-search input[type="text"] {
+      max-width: 520px;
+    }
+    .search-help {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .search-help span {
+      background: var(--row-alt);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 999px;
     }
     .topbar a {
       text-decoration: none;
@@ -105,21 +169,27 @@
       align-items: end;
     }
     label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
-    input[type="text"] {
+    input[type="text"], input[type="password"] {
       width: 100%;
       padding: 8px 10px;
+      height: 36px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: #fff;
+      background: var(--card);
+      color: var(--ink);
     }
     .btn {
-      padding: 8px 14px;
+      padding: 0 14px;
+      height: 36px;
       background: var(--accent);
       color: #fff;
       border: none;
       border-radius: 8px;
       cursor: pointer;
       font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     .btn.secondary {
       background: #2f2f2f;
@@ -128,16 +198,22 @@
       margin-top: 18px;
       display: grid;
       gap: 12px;
+      overflow-x: hidden;
     }
     .row {
       padding: 12px;
       border-radius: 10px;
       border: 1px solid var(--border);
-      background: #fff;
+      background: var(--row-bg);
       display: grid;
       grid-template-columns: 140px 1.1fr 1.1fr 2fr 1fr auto;
       gap: 12px;
       align-items: center;
+      width: 100%;
+    }
+    .row > div {
+      min-width: 0;
+      word-break: break-word;
     }
     .header-row {
       background: transparent;
@@ -178,6 +254,13 @@
       line-height: 1.55;
       color: #242424;
     }
+    .html-body {
+      white-space: normal;
+    }
+    .html-body img {
+      max-width: 100%;
+      height: auto;
+    }
     .attachments {
       margin-top: 16px;
       display: grid;
@@ -199,28 +282,71 @@
       padding: 8px 12px;
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: #faf7f2;
+      background: var(--row-alt);
+    }
+    .theme-select {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .theme-select select {
+      padding: 0 8px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--ink);
     }
     @media (max-width: 900px) {
       .filters { grid-template-columns: 1fr; }
       .row { grid-template-columns: 1fr; }
-      .grid { grid-template-columns: 1fr; }
+      .header-bar { grid-template-columns: 1fr; gap: 10px; }
+      .header-search input[type="text"] { max-width: none; }
+      .header-row { display: none; }
+      .container { padding: 16px; }
+      .row { padding: 12px; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>VaultMail</h1>
-    <p>Local Gmail MBOX archive browser</p>
+  <header class="header-bar">
+    <form method="get" action="/" class="logo-link">
+      <button type="submit" aria-label="VaultMail Home">
+        <img class="logo" src="/media/logo.png" alt="VaultMail" />
+      </button>
+    </form>
+    <div class="header-search-wrap">
+      <form method="get" action="/" class="header-search">
+        <input type="text" name="q" placeholder="Search subject, from, body" value="{{.Query}}" />
+        <button class="btn" type="submit">Search</button>
+      </form>
+      <div class="search-help">
+        <span>from:alice</span>
+        <span>to:"Jane Doe"</span>
+        <span>subject:"invoice"</span>
+        <span>body:"red carpet"</span>
+        <span>date:>=2025-01-01</span>
+        <span>date:<=2025-12-31</span>
+        <span>has:attachment</span>
+        <span>att:>1M</span>
+      </div>
+    </div>
     <div class="topbar">
-      <div class="nav">
-        <span>Navigate:</span>
-        <a href="/">Inbox</a>
+      <div class="theme-select">
+        <span>Theme</span>
+        <select id="theme-select" aria-label="Theme">
+          {{range .Themes}}
+            <option value="{{.Name}}">{{.Label}}</option>
+          {{end}}
+        </select>
       </div>
-      <div class="nav">
-        <span>Tips:</span>
-        <span>Search is full-text</span>
-      </div>
+      {{if .AuthEnabled}}
+      <form method="post" action="/logout" style="margin:0;">
+        <button class="btn secondary" type="submit">Logout</button>
+      </form>
+      {{end}}
     </div>
   </header>
   <div class="container">
@@ -228,21 +354,40 @@
       <main>
         {{template "content" .}}
       </main>
-      <aside class="sidebar">
-        <h3>VaultMail</h3>
-        <div class="stat"><span>Status</span><span>Local</span></div>
-        <div class="stat"><span>Mode</span><span>Read</span></div>
-        <div class="stat"><span>Tips</span><span>Use search</span></div>
-        <div>
-          <h3>Search</h3>
-          <div class="muted">Examples:</div>
-          <div class="muted">from:alice subject:"invoice"</div>
-          <div class="muted">date:>=2025-01-01 att:>1M</div>
-          <div class="muted">body:"red carpet"</div>
-        </div>
-      </aside>
     </div>
   </div>
+  <script>
+    (function() {
+      var select = document.getElementById("theme-select");
+      if (!select) return;
+      function getCookie(name) {
+        var value = "; " + document.cookie;
+        var parts = value.split("; " + name + "=");
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return "";
+      }
+      function setCookie(name, value, days) {
+        var maxAge = days ? days * 24 * 60 * 60 : 31536000;
+        document.cookie = name + "=" + value + "; Max-Age=" + maxAge + "; Path=/; SameSite=Lax";
+      }
+      function applyTheme(value) {
+        var theme = value || "paper";
+        if (theme === "paper") {
+          document.documentElement.removeAttribute("data-theme");
+        } else {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+        select.value = theme;
+      }
+      var saved = getCookie("vaultmail_theme");
+      applyTheme(saved || "paper");
+      select.addEventListener("change", function() {
+        var value = select.value;
+        setCookie("vaultmail_theme", value, 365);
+        applyTheme(value);
+      });
+    })();
+  </script>
 </body>
 </html>
 {{end}}

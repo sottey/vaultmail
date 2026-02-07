@@ -1,0 +1,16 @@
+{
+  "name": "ember",
+  "vars": {
+    "bg": "#fff2e6",
+    "ink": "#2b170f",
+    "muted": "#7a4b3a",
+    "accent": "#d14924",
+    "accent-2": "#f0a202",
+    "card": "#ffffff",
+    "border": "#f2d2c2",
+    "header-bg": "linear-gradient(90deg, #fff2e6, #f9dcc9)",
+    "sidebar-bg": "#fff6ef",
+    "row-bg": "#ffffff",
+    "row-alt": "#fff0e6"
+  }
+}
