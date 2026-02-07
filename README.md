@@ -45,6 +45,10 @@ Optional flags:
 - `--themes` (load additional themes from a directory of `.json`/`.yaml` files)
 - `--unsafe-html` (render raw HTML emails without sanitizing)
 
+Auth:
+- When `--password` is set, the UI shows a login screen and sets a cookie for persistence.
+- A Logout button appears in the header to clear the session.
+
 ### 3) Rebuild Search Index
 
 If the FTS tokenizer changes or you want to rebuild the search index:
@@ -76,9 +80,11 @@ Step-by-step:
   VaultMail.db
   blobs/
     eml/
-    <hash>.eml
+      ab/
+        <sha256>.eml
     att/
-    <hash>.<ext>
+      cd/
+        <sha256>.<ext>
 ```
 
 ## Notes
@@ -86,6 +92,7 @@ Step-by-step:
 - Search uses FTS5 trigram tokenizer for substring matching.
 - Messages that require fallback parsing are stored with `parse_failed = 1`.
 - Attachments are stored on disk and referenced by SHA256.
+- HTML emails are rendered safely by default; use `--unsafe-html` to render raw HTML.
 
 ## Query Syntax
 

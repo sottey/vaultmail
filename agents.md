@@ -142,7 +142,7 @@ CREATE TABLE import_batches (
 ### FTS5
 ```sql
 CREATE VIRTUAL TABLE messages_fts
-USING fts5(subject, from_text, body_text, content='', tokenize='unicode61');
+USING fts5(subject, from_text, body_text, content='', tokenize='trigram');
 
 CREATE TABLE messages_fts_map (
   message_fk INTEGER PRIMARY KEY REFERENCES messages(id),
@@ -160,6 +160,10 @@ CREATE TABLE messages_fts_map (
 
 Optional:
 - `vaultmail init --vault <dir>`
+- `--verbose` / `-v` (import/serve/reindex)
+- `--password` (serve only; enables login + cookie)
+- `--themes` (serve only; load external JSON/YAML themes)
+- `--unsafe-html` (serve only; render raw HTML emails)
 
 ---
 
@@ -192,6 +196,7 @@ Optional:
 - Prefer `text/plain`
 - Else strip HTML tags from `text/html`
 - Generate snippet (first ~200 chars)
+- Preserve raw HTML body for optional rendering in UI
 
 ### Attachments
 - Any MIME part with:
@@ -243,6 +248,9 @@ During import:
 - Message view: headers, body text, attachment list
 - No SPA
 - Minimal JS
+- Header search bar with filter hints
+- From and To columns shown in results
+- Optional login + logout when password enabled
 
 ---
 
@@ -265,7 +273,7 @@ During import:
 - Do NOT crash on malformed input
 - Do NOT block web server with imports
 - Do NOT assume Message-ID exists
-- Do NOT render unsanitized HTML
+- Do NOT render unsanitized HTML by default (only allow via explicit `--unsafe-html`)
 
 ---
 
@@ -289,10 +297,13 @@ Nothing beyond this scope.
 - Filesystem blob storage for `.eml` and attachments
 - Streaming MBOX parser with long-line handling and robust separator detection
 - MIME parsing with attachment handling, plus EML fallback when parsing fails
-- Web UI: browse, search, filters, message view, attachment download + inline view for images/PDFs
+- Web UI: browse, search, filter hints, message view, attachment download + inline view for images/PDFs
 - Import error logging to JSONL with per-message context
  - Query syntax (in `q`): `date:>=`, `date:<=`, `has:attachment`, `att:>10M`, `subject:`, `from:`, `to:`, `body:`
  - `to_name` / `to_email` persisted on import (backfilled on `reindex`)
+- Optional password auth with cookie + logout
+- Built-in themes + external themes via `--themes`
+- HTML emails rendered safely by default; `--unsafe-html` renders raw HTML
 
 ### Search Behavior
 - FTS uses `trigram` tokenizer for substring matching (e.g., `kellibyers` matches `kellibyersclark`)
@@ -308,10 +319,12 @@ Nothing beyond this scope.
 - `vaultmail import --vault <dir> --mbox <path>`
 - `vaultmail serve --vault <dir> --addr 127.0.0.1:8080`
 - `vaultmail reindex --vault <dir>`
+- `vaultmail serve --vault <dir> --addr 127.0.0.1:8080 --password <pw>`
+- `vaultmail serve --vault <dir> --addr 127.0.0.1:8080 --themes /path/to/themes`
+- `vaultmail serve --vault <dir> --addr 127.0.0.1:8080 --unsafe-html`
 
 ### Docker (Manual Steps)
-1. Add a `Dockerfile` (multi-stage build: Go builder -> minimal runtime).
-2. Build: `docker build -t vaultmail:latest .`
+1. Build: `docker build -t vaultmail:latest .`
 3. Import (one-time):
    - `docker run --rm -v /path/to/vault:/vault -v /path/to/mbox:/data vaultmail:latest import --vault /vault --mbox /data/all_mail.mbox`
 4. Serve:
